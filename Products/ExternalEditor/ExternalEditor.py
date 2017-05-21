@@ -18,8 +18,9 @@
 
 from string import join  # For Zope 2.3 compatibility
 import types
-import urllib
+import urllib.request, urllib.parse, urllib.error
 from Acquisition import aq_inner, aq_base, aq_parent, Implicit
+import collections
 try:
     from App.class_init import InitializeClass
 except ImportError:
@@ -56,11 +57,11 @@ class PDataStreamIterator:
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         if self.data is None:
             raise StopIteration
         data = self.data.data
-        self.data = self.data.next
+        self.data = self.data.__next__
         return data
 
 
@@ -127,14 +128,14 @@ class ExternalEditor(Implicit):
 
         title = getattr(aq_base(ob), 'title', None)
         if title is not None:
-            if callable(title):
+            if isinstance(title, collections.Callable):
                 title = title()
-            if isinstance(title, types.UnicodeType):
-                title = unicode.encode(title, 'utf-8')
+            if isinstance(title, str):
+                title = str.encode(title, 'utf-8')
             r.append('title:%s' % title)
 
         if hasattr(aq_base(ob), 'content_type'):
-            if callable(ob.content_type):
+            if isinstance(ob.content_type, collections.Callable):
                 r.append('content_type:%s' % ob.content_type())
             else:
                 r.append('content_type:%s' % ob.content_type)
@@ -292,7 +293,7 @@ def EditLink(self, object, borrow_lock=0, skip_data=0):
         if skip_data:
             query['skip_data'] = 1
         url = "%s/externalEdit_/%s%s%s" % (aq_parent(aq_inner(object)).absolute_url(),
-                                           urllib.quote(object.getId()),
+                                           urllib.parse.quote(object.getId()),
                                            ext, querystr(query))
         return ('<a href="%s" '
                 'title="Edit using external editor">'
@@ -308,6 +309,6 @@ def querystr(d):
     """Create a query string from a dict"""
     if d:
         return '?' + '&'.join(
-            ['%s=%s' % (name, val) for name, val in d.items()])
+            ['%s=%s' % (name, val) for name, val in list(d.items())])
     else:
         return ''
